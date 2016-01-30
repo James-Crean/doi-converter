@@ -18,22 +18,25 @@ class DOIConverter(object):
 
     def query(self, doi):
         if doi[:5].lower() == 'doi: ': #grabs first 5 characters lowercases, and compares
-            url = doi.split()[1] #removes "doi:" and whitespace leaving only the doi
+            try:
+                url = "http://dx.doi.org/" + doi.split()[1] #removes "doi:" and whitespace leaving only the doi
+            except IndexError:
+                return (doi.strip('\n') + " -- Invalid DOI.\n")
         elif doi.startswith("http://dx.doi.org/"):
             url = doi
         else:
             url = "http://dx.doi.org/" + doi
-        r = requests.get(url, headers =self.headers)
+        r = requests.get(url, headers = self.headers)
         if r.status_code == 200:
             return r.content
         elif r.status_code == 204:
-            return doi + " -- The request was OK but there was no metadata available.available."
+            return (doi.strip('\n') + " -- The request was OK but there was no metadata available.available.\n")
         elif r.status_code == 404:
-            return doi + " -- The DOI requested doesn't exist."
+            return (doi.strip('\n') + " -- The DOI requested doesn't exist.\n")
         elif r.status_code == 406: #note, this is recoverable. will add later
-            return doi + " -- Can't serve any requested content type."
+            return (doi.strip('\n') + " -- Can't serve any requested content type.\n")
         else:
-            return doi + " -- Unknown status code returned (" + r.response_code + ")."
+            return (doi.strip('\n') + " -- Unknown status code returned (" + r.status_code + ").\n")
 
     def doi2apa(self, doi):
         self.headers['accept'] = "text/x-bibliography; style=apa; locale=en-US"
