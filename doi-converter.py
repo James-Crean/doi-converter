@@ -2,10 +2,13 @@ import requests
 import json
 import sys
 import getopt
-import ipdb
+import codecs
 
 class DOIConverter(object):
-    def __init__(self, accept='application/vnd.citationstyles.csl+json', timout=3):
+
+#additional headers can be found at http://www.crosscite.org/cn/
+
+    def __init__(self, accept='text/x-bibliography; style=apa; locale=en-US', timout=3):
         self.headers = {'accept': accept}
         self.timeout = timout
         """
@@ -14,13 +17,27 @@ class DOIConverter(object):
         """
 
     def query(self, doi):
-        if doi.startswith("http://dx.doi.org/"):
+        if doi[:5].lower() == 'doi: ': #grabs first 5 characters lowercases, and compares
+            url = doi.split()[1] #removes "doi:" and whitespace leaving only the doi
+        elif doi.startswith("http://dx.doi.org/"):
             url = doi
         else:
             url = "http://dx.doi.org/" + doi
         r = requests.get(url, headers =self.headers)
-        return r
+        if r.status_code == 200:
+            return r.content
+        elif r.status_code == 204:
+            return doi + " -- The request was OK but there was no metadata available.available."
+        elif r.status_code == 404:
+            return doi + " -- The DOI requested doesn't exist."
+        elif r.status_code == 406: #note, this is recoverable. will add later
+            return doi + " -- Can't serve any requested content type."
+        else:
+            return doi + " -- Unknown status code returned (" + r.response_code + ")."
 
+    def doi2apa(self, doi):
+        self.headers['accept'] = "text/x-bibliography; style=apa; locale=en-US"
+        return self.query(doi)
     def doi2json(self, doi):
         self.headers['accept'] = 'application/vnd.citationstyles.csl+json'
         return self.query(doi).json()
@@ -61,15 +78,16 @@ def main(argv):
     #
 
     inputfile = open(inputfile, 'r')
-    outputfile = open(outputfile, 'w')
+    outputfile = codecs.open(outputfile, 'wb', "utf-8")
 
     #Warning: There should be a check for the output file being read only
     #However, I do not currently know how to check that in python
 
     for line in inputfile:
-        response = converter.doi2json(line)
-        json.dump(response, outputfile)
-        #outputfile.write(response)
+        response = converter.doi2apa(line)
+        outputfile.write(response.decode('utf-8'))
+    inputfile.close()
+    outputfile.close()
     sys.exit()
 
 
